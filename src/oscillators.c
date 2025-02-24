@@ -2,6 +2,7 @@
 
 #include <math.h>
 #include <float.h>
+#include <stdlib.h>
 #include "oscillators.h"
 
 /*
@@ -54,4 +55,9 @@ float triangle(float frequency, float time, float phase_shift)
     }
     amplitude = fabsf(amplitude - 1.0f);
     return 2.0f * amplitude - 1.0f;
+}
+
+float noise()
+{
+    return 2.0f * ((float)rand() / RAND_MAX) - 1.0f;
 }
