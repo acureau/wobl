@@ -1,5 +1,3 @@
-#define _USE_MATH_DEFINES
-
 #include <math.h>
 #include <float.h>
 #include <stdlib.h>
@@ -11,9 +9,11 @@
     The fmodf function maintains the sign of the first argument, meaning we need to account for negative return values.
 */
 
+#define PI 3.14159265358979323846
+
 float sine(float frequency, float time, float phase_shift)
 {
-    return sinf(2 * M_PI * (frequency * time + phase_shift));
+    return sinf(2 * PI * (frequency * time + phase_shift));
 }
 
 float square(float frequency, float time, float phase_shift)
@@ -59,5 +59,5 @@ float triangle(float frequency, float time, float phase_shift)
 
 float noise()
 {
-    return 2.0f * ((float)rand() / RAND_MAX) - 1.0f;
+    return 2.0f * ((float)rand() / (float)RAND_MAX) - 1.0f;
 }

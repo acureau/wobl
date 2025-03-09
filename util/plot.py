@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Path to your data file
-file_path = "..\\build\\data.txt"
+file_path = "../build/data.txt"
 
 # Read waveform data from file
 with open(file_path, "r", encoding="utf-8-sig") as file:

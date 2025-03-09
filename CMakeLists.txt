@@ -6,7 +6,8 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 include_directories(include)
-add_executable(wobl src/main.c src/oscillators.c)
+add_executable(wobl src/main.c src/oscillators.c src/wav.c)
+target_link_libraries(wobl m)
 
 target_compile_options(wobl PRIVATE
     $<$<CONFIG:Release>:-O3 -march=native -ffast-math -fno-trapping-math>
