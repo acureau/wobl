@@ -1,7 +1,7 @@
-#include <math.h>
-#include <float.h>
-#include <stdlib.h>
-#include "oscillators.h"
+#include <cmath>
+#include <cfloat>
+#include <numbers>
+#include "oscillators.hpp"
 
 /*
     Notes:
@@ -9,11 +9,9 @@
     The fmodf function maintains the sign of the first argument, meaning we need to account for negative return values.
 */
 
-#define PI 3.14159265358979323846
-
 float sine(float frequency, float time, float phase_shift)
 {
-    return sinf(2 * PI * (frequency * time + phase_shift));
+    return sinf(2 * std::numbers::pi * (frequency * time + phase_shift));
 }
 
 float square(float frequency, float time, float phase_shift)
@@ -53,7 +51,7 @@ float triangle(float frequency, float time, float phase_shift)
     {
         amplitude += 2.0f;
     }
-    amplitude = fabsf(amplitude - 1.0f);
+    amplitude = 1.0f - fabsf(amplitude - 1.0f);
     return 2.0f * amplitude - 1.0f;
 }
 
