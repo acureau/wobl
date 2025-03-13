@@ -3,7 +3,7 @@
 #include <vector>
 #include <string>
 #include <cstdint>
-#include "wav.hpp"
+#include "Wav.hpp"
 
 void export_wav(const std::string& file_path, int16_t channel_count, int32_t sample_rate, const std::vector<float>& data)
 {

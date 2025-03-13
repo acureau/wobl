@@ -7,7 +7,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 include_directories(include)
-add_executable(wobl src/main.cpp src/oscillators.cpp src/wav.cpp)
+add_executable(wobl src/main.cpp src/Oscillator.cpp src/Wav.cpp src/Noise.cpp)
 
 # Link math library on linux.
 if(NOT WIN32)

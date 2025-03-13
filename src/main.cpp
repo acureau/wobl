@@ -1,11 +1,9 @@
-#include <iostream>
 #include <vector>
-#include <cmath>
 #include <cstdlib>
 #include <chrono>
-#include <memory>
-#include "oscillators.hpp"
-#include "wav.hpp"
+#include "Oscillator.hpp"
+#include "Noise.hpp"
+#include "Wav.hpp"
 
 int main()
 {
@@ -15,17 +13,20 @@ int main()
 
     // Generate waveform.
     constexpr int32_t sample_rate = 44100;
-    constexpr int duration_seconds = 20;
+    constexpr int duration_seconds = 60 * 10;
     const int sample_count = sample_rate * duration_seconds;
-
-    // Use std::vector instead of raw memory allocation.
     std::vector<float> samples(sample_count);
+
+    Oscillator time_modulator(OscillatorType::Sine, 0.05f, 44100.0f);
+    Oscillator phase_modulator(OscillatorType::Sine, 5.0f, 44100.0f);
+    Oscillator voice(OscillatorType::Square, 220.0f, 44100.0f);
 
     for (int i = 0; i < sample_count; i++)
     {
-        float time = static_cast<float>(i) / sample_rate;
-        // float modulator = sine(2.0f, time, 0.0f);
-        samples[i] = sine(440.0f, time, 0.0f); // 10.0f * modulator
+        voice.Speed = 1.0f + time_modulator.Sample();
+        phase_modulator.Speed = 1.0f + time_modulator.Sample();
+        voice.PhaseOffset = phase_modulator.Sample();
+        samples[i] = voice.Sample();
     }
 
     // Export to WAV.
