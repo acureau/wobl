@@ -8,33 +8,33 @@ void SinglePole::SetSmoothingFactor(float smoothing_factor)
     SmoothingFactor = smoothing_factor;
 }
 
-float SinglePole::Filter(float input)
+float SinglePole::Filter(float current)
 {
-    // Set previous input for the first time. Do not apply filter.
-    if (!this->PreviousOutput || !this->PreviousInput)
+    // Set previous for the first time. Do not apply filter.
+    if (!this->Previous)
     {
-        this->PreviousOutput = input;
-        this->PreviousInput = input;
-        return input;
-    }
-    
-    // Calculate filtered input. 
-    float output = input;
-    switch (this->Type)
-    {
-        case FilterType::LowPass:
-            output = this->SmoothingFactor * input + (1.0f - this->SmoothingFactor) * *this->PreviousOutput;
-            break;
-
-        case FilterType::HighPass:
-            output = (1.0f - this->SmoothingFactor) * (*this->PreviousOutput + input - *this->PreviousInput);
-            break;
+        this->Previous = current;
+        return current;
     }
 
-    // Set last input, return filtered input.
-    this->PreviousInput = input;
-    this->PreviousOutput = output;
-    return output;
+    // Calculate low-pass, update previous.
+    float low_pass_output = this->SmoothingFactor * current + (1.0f - this->SmoothingFactor) * *this->Previous;
+    this->Previous = low_pass_output;
+
+    // Calculate high-pass.
+    if (this->Type == FilterType::HighPass)
+    {
+        return current - low_pass_output;
+    }
+
+    // Return low-pass.
+    else if (this->Type == FilterType::LowPass)
+    {
+        return low_pass_output;
+    }
+
+    // Don't filter.
+    return current;
 }
 
 SinglePole::SinglePole(FilterType type, float smoothing_factor): Type(type) 

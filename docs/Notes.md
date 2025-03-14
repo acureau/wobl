@@ -26,7 +26,7 @@ A sine wave is the natural point to start synthesizing audio because it represen
 
 Draw a circle on a piece of paper and put a point at its center. This center point is at Y coordinate zero, the top of your circle is at Y coordinate 1, and the bottom of your circle is at Y coordinate -1. Draw a line from the center to the right edge of the circle. Put your finger where this line ends and move it counter-clockwise along the circle, a line between your fingertip and the center of the circle form an angle with the line you drew. This angle is the input the sine function expects, and the Y coordinate of your fingertip is what it returns.Now imagine you move your finger at a constant rate along the circle's circumference and plot it out on a graph. The Y axis representing the height of your finger at each second, and the X axis representing time. The resulting graph would plot a sine wave.
 
-This is one piece of the puzzle, but how do we actually describe this movement mathematically? We use two variables: time and frequency. Time refers to the time in seconds at which we want to plot a point (or sample). Frequency refers to the amount of complete oscillation cycles per second. One full cycle of the circle is equal to `2*PI` radians, and we multiply this by `frequency * time` (the amount of cycles that have occured at the given time) to get the input angle for the sine function. We can specify the "starting point" along the circle by providing an offset called phase. Finally, since the sine function returns a value between -1 and 1 we multiply it by another variable called amplitude, which controls the amplitude range of the resulting sine wave. We perceive this as volume. Putting it all together we get the following formula.
+This is one piece of the puzzle, but how do we actually describe this movement mathematically? We use two variables: time and frequency. Time refers to the time in seconds at which we want to plot a point (or sample). Frequency refers to the amount of complete oscillation cycles per second. One full cycle of the circle is equal to `2*PI` radians, and we multiply this by `ft` (the amount of cycles that have occured at the given time) to get the input angle for the sine function. We can specify the "starting point" along the circle by providing an offset called phase. Finally, since the sine function returns a value between -1 and 1 we multiply it by another variable called amplitude, which controls the amplitude range of the resulting sine wave. We perceive this as volume. Putting it all together we get the following formula.
 
 `A * sin(2πft + p)`
 
@@ -61,6 +61,34 @@ About a week of work later I've encountered a frequency drift that builds as tim
 I bit the bullet and transitioned to C++, it is a few days later and I have finished re-working the oscillators. I had to make some trade-offs to implement the phase increment approach. The biggest one being that oscillators
 now need to be aware of the rate at which they're being sampled. Kind of annoying but not the end of the world. I also cannot update the frequency or sample rate of an oscillator without recalculating the phase increment. I was kind of annoyed that I couldn't mess with time anymore, since the oscillator functions are no longer "pure". I added a "speed" multiplier applied to the pre-calculated phase increment every time phase is incremented.
 
-So really I've lost some flexibility and I haven't gone anywhere, but the high-frequency "pollution" that appeared as time increased no longer appears. My concerns about the speed switching over to C++ were not warranted. Perhaps it's slower than C in some ways, but I can generate 10 minutes of audio, a sine wave with phase offset and speed modulation, in under one second. At this point we're definitely within the real-time window. I am going to move on now to filtering, used to shape waveforms by filtering out unwanted frequency content (I have no idea what this means). After a quick look, I'm scared. These notes have really shifted as I've gotten further and further in over my head!
+So really I've lost some flexibility and I haven't gone anywhere, but the high-frequency "pollution" that appeared as time increased no longer appears. My concerns about the speed switching over to C++ were not warranted. Perhaps it's slower than C in some ways, but I can generate 10 minutes of audio, a sine wave with phase offset and speed modulation, in under one second. At this point we're definitely within the real-time window.
 
 ### Frequency Content
+
+What does "frequency content" mean? Don't our synthesized waveforms have only a single frequency? To say that the answer is complicated would be an understatement. A sine wave is "pure", it is a perfect representation of oscillation at a specific frequency. More complex waveforms, such as a square wave, can be decomposed into constituent sine waves using more complex math than we're going to need at the moment. Just understand that frequency content refers to these frequencies in complex waveforms.
+
+### Low-Pass Filtering
+
+Low-pass filters allow low frequencies to "pass", filtering frequencies on the high end. Your first thought may be that in order to filter high frequencies we need to first decompose the waveform, and while this is definitely _one_ way to do so, it is not the only way. A low-pass filter you (programming reader) may be more familiar with is the rolling average. For those unfamiliar a rolling average is a simple way to smooth sequential inputs by storing a fixed-length window of inputs, where the newest input is inserted and the oldest input removed (rolling), then the entire collection averaged to produce a "smoothed" value.
+
+Learning this blew my mind. How is it possible that this removes high frequencies from a waveform? Well, remember that frequency represents the amount of complete oscillations per second. Low frequencies move slow, and high frequencies move fast. By definition there will be more samples of low frequencies in a complex waveform than high frequencies. The transition from low to high will be abrupt, and the transition from high to low will happen quickly. Exactly the kind of thing a rolling average is used to "smooth out". "Smoothing out" is the _same thing_ as "filtering high frequencies".
+
+Unfortunately this is computationally inefficient. You've got to store a lot of samples, each of those samples has to factor into your filtering calculation. What if there was some way to account for a bunch of past samples without storing all of them? Luckily there is! We just need to store one sample, the previous sample, and we can use it to process the current sample. All we have to do is take some percentage (0.0 to 1.0) of the current input and add it to the opposite percentage of the previous input. The result becomes the previous input, storing the "weight" of the previous inputs by proxy. This is one of the most basic low-pass filters. The final formula is as follows.
+
+`scale * current + (1 - scale) * previous`
+
+### High-Pass Filtering
+
+It follows that high-pass filters allow high frequencies to "pass", but the way in which we do that cannot be at all related to our "smoothing" approach to low-pass filtering, right? For a while I thought about algorithms for achieving the opposite effect. I am sure there is a way to do so, but I never made it there because the solution is surprisingly simple. We want to subtract the low frequencies from our waveform, leaving only the high frequencies. We have already extracted the low frequencies from the waveform, so we can _literally_ subtract it from the input sample.
+
+`current - (scale * current + (1 - scale) * previous)`
+
+One gotcha moment here, when we're using this method of high-pass filtering we don't store the high-pass result in the previous variable since we're dependant on the low-pass calculation. It's more of a little modification applied to a low-pass filter.
+
+### Envelopes
+
+With filtering fully implemented the last step to making my synthesizer a usable, albeit simple, musical instrument is to implement envelopes. Envelopes describe how the parameters of oscillators change over time. The most common envelope is the ADSR envelope, which normally controls amplitude. Attack (A) controls how long it takes to rise to peak amplitude, decay (D) controls how long it takes to descend to a specified sustain (S) level. Release (R) controls how long it takes to descend to zero.
+
+An envelope will be similar to an oscillator, it will take a point in time and return a multiplier value to be applied to whatever parameter it's controlling. I've learned my lesson and I'm going to be implementing a pre-calculated time increment. It will need to be re-triggered if we want to apply it again, for example an oscillator will continue to produce samples but they will be at amplitude zero after release.
+
+### ADSR

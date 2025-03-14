@@ -30,7 +30,7 @@ int main()
     //     samples[i] = voice.Sample();
     // }
 
-    SinglePole low_pass(FilterType::HighPass, 0.9);
+    SinglePole low_pass(FilterType::LowPass, 0.05);
     for (int i = 0; i < sample_count; i++)
     {
         samples[i] = low_pass.Filter(Noise());
