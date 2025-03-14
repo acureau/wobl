@@ -1,7 +1,6 @@
 ### Todo
 
 - Output: Audio Sink
-- Filters: Low-pass, High-pass
 - Envelopes: Attack, Decay, Sustain, Release
 - Input: Keyboard, Sequence File
 
