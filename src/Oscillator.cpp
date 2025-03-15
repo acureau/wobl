@@ -93,4 +93,5 @@ Oscillator::Oscillator(OscillatorType type, float frequency, float sample_rate):
     Type(type),
     Frequency(frequency),
     SampleRate(sample_rate),
-    PhaseIncrement(frequency / sample_rate) {}
+    PhaseIncrement(frequency / sample_rate) 
+{}

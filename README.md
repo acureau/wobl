@@ -1,7 +1,6 @@
 ### Todo
 
 - Output: Audio Sink
-- Envelopes: Attack, Decay, Sustain, Release
 - Input: Keyboard, Sequence File
 
 ### Ideas

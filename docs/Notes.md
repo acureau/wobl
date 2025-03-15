@@ -87,8 +87,8 @@ One gotcha moment here, when we're using this method of high-pass filtering we d
 
 ### Envelopes
 
-With filtering fully implemented the last step to making my synthesizer a usable, albeit simple, musical instrument is to implement envelopes. Envelopes describe how the parameters of oscillators change over time. The most common envelope is the ADSR envelope, which normally controls amplitude. Attack (A) controls how long it takes to rise to peak amplitude, decay (D) controls how long it takes to descend to a specified sustain (S) level. Release (R) controls how long it takes to descend to zero.
-
-An envelope will be similar to an oscillator, it will take a point in time and return a multiplier value to be applied to whatever parameter it's controlling. I've learned my lesson and I'm going to be implementing a pre-calculated time increment. It will need to be re-triggered if we want to apply it again, for example an oscillator will continue to produce samples but they will be at amplitude zero after release.
+With filtering fully implemented the last step to making my synthesizer a usable, albeit simple, musical instrument is to implement envelopes. Envelopes describe how the parameters of oscillators change over time. An envelope will be similar to an oscillator, it will take a point in time and return a multiplier value to be applied to whatever parameter it's controlling. I've learned my lesson and I'm going to be implementing a pre-calculated time increment. It will need to be re-triggered if we want to apply it again, for example an oscillator will continue to produce samples but they will be at amplitude zero after release.
 
 ### ADSR
+
+The most common envelope is the ADSR envelope, which normally controls amplitude. Attack (A) controls how long it takes to rise to peak amplitude, decay (D) controls how long it takes to descend to a specified sustain (S) level. Release (R) controls how long it takes to descend to zero.

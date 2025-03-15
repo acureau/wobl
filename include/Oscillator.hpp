@@ -2,7 +2,7 @@
 
 #include <optional>
 
-enum OscillatorType
+enum class OscillatorType
 {
     Sine,
     Square,

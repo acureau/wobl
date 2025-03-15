@@ -5,6 +5,7 @@
 #include "Filter.hpp"
 #include "Noise.hpp"
 #include "Wav.hpp"
+#include "Envelope.hpp"
 
 int main()
 {
@@ -18,25 +19,23 @@ int main()
     const int sample_count = sample_rate * duration_seconds;
     std::vector<float> samples(sample_count);
 
-    // Oscillator time_modulator(OscillatorType::Sine, 0.05f, 44100.0f);
-    // Oscillator phase_modulator(OscillatorType::Sine, 5.0f, 44100.0f);
-    // Oscillator voice(OscillatorType::Square, 220.0f, 44100.0f);
+    Oscillator phase_modulator(OscillatorType::Sine, 20.0f, 44100.0f);
+    Oscillator voice(OscillatorType::Square, 440.0f, 44100.0f);
+    ADSR envelope(44100.0f, 1.0f, 1.0f, 0.5f, 1.0f);
+    envelope.Trigger();
 
-    // for (int i = 0; i < sample_count; i++)
-    // {
-    //     voice.Speed = 1.0f + time_modulator.Sample();
-    //     phase_modulator.Speed = 1.0f + time_modulator.Sample();
-    //     voice.PhaseOffset = phase_modulator.Sample();
-    //     samples[i] = voice.Sample();
-    // }
-
-    SinglePole low_pass(FilterType::LowPass, 0.05);
     for (int i = 0; i < sample_count; i++)
     {
-        samples[i] = low_pass.Filter(Noise());
+        if (i == sample_rate * 5)
+        {
+            envelope.Release();
+        }
+
+        voice.PhaseOffset = phase_modulator.Sample();
+        samples[i] = envelope.GetLevel() * voice.Sample();
     }
 
     // Export to WAV.
-    export_wav("noise_filtered.wav", 1, sample_rate, samples);
+    export_wav("square_envelope.wav", 1, sample_rate, samples);
     return 0;
 }
