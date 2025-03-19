@@ -91,19 +91,10 @@ With filtering fully implemented the last step to making my synthesizer a usable
 
 ### ADSR
 
-The most common envelope is the ADSR envelope, which normally controls amplitude. Attack (A) controls how long it takes to rise to peak amplitude, decay (D) controls how long it takes to descend to a specified sustain (S) level. Release (R) controls how long it takes to descend to zero. I've implemented the ADSR as a state machine. Given the sample rate it calculates a time increment and applies it each time we calculate the level. Between each state time is reset. 
+The most common envelope is the ADSR envelope, which normally controls amplitude. Attack (A) controls how long it takes to rise to peak amplitude, decay (D) controls how long it takes to descend to a specified sustain (S) level. Release (R) controls how long it takes to descend to zero. I've implemented the ADSR as a state machine. Given the sample rate it calculates a time increment and applies it each time we calculate the level. Between each state time is reset.
 
-Attack walks up the range between zero and one over the specified attack time length. The formula to calculate the level at a given time is simple: `Current Time / Attack Time`. This formula, and the formula for all of my other states, is linear. Meaning it changes at the same rate over time. 
+Attack walks up the range between zero and one over the specified attack time length. The formula to calculate the level at a given time is simple: `Current Time / Attack Time`. This formula, and the formula for all of my other states, is linear. Meaning it changes at the same rate over time.
 
 Decay walks down the range between one and a specified sustain level. We first determine the percentage of decay time that has passed with `X = Current Time / Decay Time`, then we determine the total level amount need to walk down with `Y = 1 - Sustain Level`. We calculate `Z = X * Y` to express the decay progress in terms of level decrement. Then to determine the current level we subtract it from one. The final formula is: `1 - (Current Time / Decay Time * (1 - Sustain Level))`. The level stays the same until we trigger the release state.
 
 Release walks down the range between the sustain level and zero. We determine the percentage of release time that has passed with `X = Current Time / Release Time`, then we invert the result by subtracting it from one. To determine the current level we take this inverted percentage of the sustain level. The final formula is `Sustain Level * (1 - Current Time / Release Time)`.
-
-### Playing Audio
-
-I haven't written this anywhere but I've been testing by writing out to a WAV file. This is not ideal, but figuring out the WAV file format proved much simpler than any OS audio APIs. It's also portable. I jump back and forth between my Windows and Linux systems, so I need an abstract interface for real-time playback. Real-time audio playback seemingly boils down to populating a fixed-length playback buffer with samples at a regular interval. Each back-end will need to do the following:
-
-1. Browse for and select a playback device.
-2. Initialize playback parameters such as sample rate, channel count, sample size, etc.
-3. Start playback.
-4. Stop playback.
