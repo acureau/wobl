@@ -8,36 +8,43 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# Add include directories.
-include_directories(
-    include 
-    include/stream
+# Add library.
+add_library(libwobl STATIC
+    src/synthesis/Envelope.cpp
+    src/synthesis/Filter.cpp
+    src/synthesis/Noise.cpp
+    src/synthesis/Oscillator.cpp
+    src/synthesis/Wav.cpp
 )
 
-# Add source files to executable.
-add_executable(wobl 
-    src/main.cpp 
-    src/Oscillator.cpp 
-    src/Filter.cpp 
-    src/Envelope.cpp 
-    src/Wav.cpp 
-    src/Noise.cpp
+# Add library includes.
+target_include_directories(libwobl PUBLIC
+    include/input
+    include/output
+    include/synthesis
+)
+
+# Library compile options for release and debug targets.
+target_compile_options(libwobl PRIVATE
+    $<$<CONFIG:Release>:-O3 -march=native -ffast-math -fno-trapping-math>
+    $<$<CONFIG:Debug>:-O0 -g -DDEBUG>
 )
 
 # Windows configuration.
 if (WIN32)
     add_definitions(-DPLATFORM_WINDOWS)
-    target_link_libraries(wobl)
 endif()
     
 # Linux configuration.
 if(NOT WIN32)
     add_definitions(-DPLATFORM_LINUX)
-    target_link_libraries(wobl m)
+    target_link_libraries(libwobl m)
 endif()
 
-# Compile options for release and debug configs.
-target_compile_options(wobl PRIVATE
-    $<$<CONFIG:Release>:-O3 -march=native -ffast-math -fno-trapping-math>
-    $<$<CONFIG:Debug>:-O0 -g -DDEBUG>
+# TEST EXECUTABLE, TODO: REMOVE ME AND MAKE AN INDEPENDENT CMAKE PROJECT
+
+add_executable(test
+    tests/main.cpp
 )
+
+target_link_libraries(test libwobl)

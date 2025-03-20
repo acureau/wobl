@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Filter.hpp"
+
 class ADSR
 {
     private:
@@ -17,6 +19,8 @@ class ADSR
         float TimeIncrement;                // A pre-calculated time increment.
         Phase CurrentPhase = Phase::Idle;   // The current envelope phase.
         float CurrentLevel = 0.0f;          // The current envelope level.
+        float RemainingTriggerFadeTime;     // The trigger fade time remaining.
+        SinglePole TriggerFadeFilter;       // The trigger fade filter.
         
     public:
         float AttackTime;                   // Attack time in seconds.
@@ -28,7 +32,7 @@ class ADSR
         void SetSampleRate(float sample_rate);
 
         // Starts the attack phase.
-        void Trigger();
+        void Trigger(bool enable_fade = true);
 
         // Starts the release phase.
         void Release();

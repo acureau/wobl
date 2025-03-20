@@ -8,11 +8,11 @@ That's about where we're at, but that's okay because now we've entered my domain
 
 ### What Exactly do I Want?
 
-The idea here is to create a synthesizer engine that can be programmatically controlled, something like csound or supercollider, but of my own creation. It would be awesome to make music from nothing at all.
+The idea here is to create a synthesizer engine that can be programmatically controlled, something like csound or supercollider, but of my own creation. It would be awesome to make music from nothing at all. I want it to take any form of input, write to any form of output, and most importantly to bind to a higher level language. These goals seem lofty but there will be no magic. Your computer supports any kind of hardware peripheral, but requires the implementation of a driver.
 
-I want it to take any form of input, write to any form of output, and most importantly to bind to a higher level language. These goals seem lofty but there will be no magic. Your computer supports any kind of hardware peripheral, but requires the implementation of a driver.
+### Initial Design Decisions
 
-### Architecture
+(I'm beginning to realize that these notes entries are becoming less coherent. Let's do our brainstorming here, and consolidate it into one fully put together paragraph.)
 
 Input devices will be collections of control states. Each individual control will be asigned a unique ID which can be used to retrieve its state. Some controls, such as keyboard keys, will have two states. Others, such as knobs, will have an analog state from zero to one. These types can be extended in the future, the most important for now is the binary input.
 
@@ -26,3 +26,7 @@ Configuration and usage will be completely separate from the core implementation
 - Configuring output devices.
 - Configuring voices.
 - Configuring mixer.
+
+We're going to continue using floats as our internal representation for now, and down-scale for output device restrictions. This is less performant but less complex than implementing some type generic core code. It will be worth revisiting this at a later time.
+
+So what we're missing here is a number of abstractions. The core on its own
