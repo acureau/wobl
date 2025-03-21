@@ -10,11 +10,11 @@ endif()
 
 # Add library.
 add_library(libwobl STATIC
+    src/output/Wav.cpp
     src/synthesis/Envelope.cpp
     src/synthesis/Filter.cpp
     src/synthesis/Noise.cpp
     src/synthesis/Oscillator.cpp
-    src/synthesis/Wav.cpp
 )
 
 # Add library includes.
