@@ -9,7 +9,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Add library.
-add_library(libwobl STATIC
+add_library(wobl STATIC
     src/output/Wav.cpp
     src/synthesis/Envelope.cpp
     src/synthesis/Filter.cpp
@@ -18,14 +18,14 @@ add_library(libwobl STATIC
 )
 
 # Add library includes.
-target_include_directories(libwobl PUBLIC
+target_include_directories(wobl PUBLIC
     include/input
     include/output
     include/synthesis
 )
 
 # Library compile options for release and debug targets.
-target_compile_options(libwobl PRIVATE
+target_compile_options(wobl PRIVATE
     $<$<CONFIG:Release>:-O3 -march=native -ffast-math -fno-trapping-math>
     $<$<CONFIG:Debug>:-O0 -g -DDEBUG>
 )
@@ -38,7 +38,7 @@ endif()
 # Linux configuration.
 if(NOT WIN32)
     add_definitions(-DPLATFORM_LINUX)
-    target_link_libraries(libwobl m)
+    target_link_libraries(wobl m)
 endif()
 
 # TEST EXECUTABLE, TODO: REMOVE ME AND MAKE AN INDEPENDENT CMAKE PROJECT
@@ -47,4 +47,4 @@ add_executable(test
     tests/main.cpp
 )
 
-target_link_libraries(test libwobl)
+target_link_libraries(test wobl)

@@ -9,8 +9,6 @@
 #include "InputDevice.hpp"
 #include "InputDriver.hpp"
 
-using StringPairVector = std::vector<std::pair<std::string, std::string>>;
-
 /*
     We should move the devices to their parent drivers. We can access them without recreating them after all.
     But then how will we determine which drivers are active? How will this interface take device IDs?
@@ -19,20 +17,38 @@ using StringPairVector = std::vector<std::pair<std::string, std::string>>;
     That makes sense I guess, the only thing this class should manage is drivers. It should be a generic interface to those drivers,
     and invoke updates in them. It just needs to expose the means of browsing, selecting, and accessing the data of devices in a
     driver agnostic way.
-
-    We're nearly there now but I need a break. I have been thinking about abstract input interfaces for too long. This will be a
-    damn good system though. I'll be able to wire up whatever controls I want to my synth.
 */
+
+using StringPairVector = std::vector<std::pair<std::string, std::string>>;
+
+class InputChangedCallback
+{
+    private:
+        // some kind of variable for tracking last invocation time
+    public:
+        int UpdateIntervalMS;
+        std::function<void(const StringPairVector &)> Callback;
+};
 
 class InputHandler
 {
     private:
+        // registered drivers map, id to object
         std::unordered_map<std::string, InputDriver> RegisteredDrivers;
-        std::unordered_map<std::string, InputDevice> ActiveDevices;
+        
+        // active device ids list
+        std::vector<std::string> ActiveDevices;
 
+        // map of device ids to their containing driver ids
+        std::unordered_map<std::string, std::string> DeviceDriverMap;
+
+        // registered callbacks list
+        std::vector<InputChangedCallback> RegisteredCallbacks;
+
+        // invoke callback functions bound to input handler
         void InvokeCallbacks(const StringPairVector &updated_inputs);
 
-        // Keep devices up to date, main thread loop.
+        // main thread loop.
         void Update();
 
     public:
@@ -49,7 +65,7 @@ class InputHandler
         T GetInputState(std::string device_id, std::string input_id);
 
         // Callback.
-        void AddInputChangedCallback(int update_interval_ms, std::function<void(const StringPairVector &)> callback);
+        void RegisterInputChangedCallback(int update_interval_ms, InputChangedCallback callback);
 
         // Handler initialization.
         void RegisterDriver(InputDriver driver);
