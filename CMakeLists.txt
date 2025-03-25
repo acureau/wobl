@@ -10,6 +10,7 @@ endif()
 
 # Add library.
 add_library(wobl STATIC
+    src/drivers/WindowsRawInput.cpp
     src/output/Wav.cpp
     src/synthesis/Envelope.cpp
     src/synthesis/Filter.cpp
@@ -19,6 +20,7 @@ add_library(wobl STATIC
 
 # Add library includes.
 target_include_directories(wobl PUBLIC
+    include/drivers
     include/input
     include/output
     include/synthesis
@@ -41,10 +43,14 @@ if(NOT WIN32)
     target_link_libraries(wobl m)
 endif()
 
-# TEST EXECUTABLE, TODO: REMOVE ME AND MAKE AN INDEPENDENT CMAKE PROJECT
+# TEST EXECUTABLES, TODO: REMOVE ME AND MAKE INDEPENDENT CMAKE PROJECTS
 
-add_executable(test
-    tests/main.cpp
+add_executable(synth-test
+    tests/SynthTest.cpp
 )
+target_link_libraries(synth-test wobl)
 
-target_link_libraries(test wobl)
+add_executable(input-test
+    tests/InputTest.cpp
+)
+target_link_libraries(input-test wobl)
