@@ -1,3 +1,5 @@
+#ifdef PLATFORM_WINDOWS
+
 #include <iostream>
 #include <vector>
 #include <string>
@@ -83,3 +85,5 @@ void WindowsRawInput::Initialize()
     }
 
 }
+
+#endif
