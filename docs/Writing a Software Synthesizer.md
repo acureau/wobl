@@ -31,6 +31,8 @@ We're going to continue using floats as our internal representation for now, and
 
 (input system architecture)
 
+I just want to let it be known that the [RAWINPUTDEVICELIST](https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-rawinputdevicelist) structure defined by the Windows API represents _a single device_.
+
 ### Generating Output
 
 (output system architecture)

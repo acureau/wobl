@@ -5,79 +5,67 @@
 #include <string>
 #include <unordered_map>
 #include <set>
+#include <queue>
 
 #include "Windows.h"
 #include "hidusage.h"
 
+#include "InputEvent.hpp"
 #include "WindowsRawInput.hpp"
 
-// todo: replace with code for generating input events
-void ProcessRawInput(HRAWINPUT hRawInput)
+/*
+    We're going to standardize the event format on floats I guess, since they can contain whole numbers as well.
+    We're going to isolate each input on a device, we can generate multiple input events per device input event.
+*/
+
+std::queue<InputEvent> InputEventQueue;
+
+void HandleRawMouseEvent(const RAWMOUSE &raw_mouse_event)
 {
-    UINT dwSize = 0;
+    std::cout << "mouse event" << std::endl;
+}
 
-    // Get required size
-    GetRawInputData(hRawInput, RID_INPUT, nullptr, &dwSize, sizeof(RAWINPUTHEADER));
-    std::vector<BYTE> lpb(dwSize);
-
-    if (GetRawInputData(hRawInput, RID_INPUT, lpb.data(), &dwSize, sizeof(RAWINPUTHEADER)) != dwSize)
+void HandleRawKeyboardEvent(const RAWKEYBOARD &raw_keyboard_event)
+{
+    // Ignore invalid states.
+    if (raw_keyboard_event.MakeCode == KEYBOARD_OVERRUN_MAKE_CODE || raw_keyboard_event.VKey >= UCHAR_MAX)
     {
-        std::cerr << "GetRawInputData didn't return correct size.\n";
         return;
     }
 
-    RAWINPUT* raw = reinterpret_cast<RAWINPUT*>(lpb.data());
+    // 
 
-    // Identify device
-    HANDLE hDevice = raw->header.hDevice;
-
-    switch (raw->header.dwType)
-    {
-        case RIM_TYPEKEYBOARD:
-        {
-            const RAWKEYBOARD& kb = raw->data.keyboard;
-
-            std::cout << "[Keyboard] Device: " << hDevice
-                      << ", VKey: " << kb.VKey
-                      << ", Flags: " << kb.Flags
-                      << ", Message: " << kb.Message
-                      << "\n";
-            break;
-        }
-        case RIM_TYPEMOUSE:
-        {
-            const RAWMOUSE& mouse = raw->data.mouse;
-
-            std::cout << "[Mouse] Device: " << hDevice
-                      << ", Buttons: " << mouse.usButtonFlags
-                      << ", X: " << mouse.lLastX
-                      << ", Y: " << mouse.lLastY
-                      << "\n";
-            break;
-        }
-        case RIM_TYPEHID:
-        {
-            const RAWHID& hid = raw->data.hid;
-
-            std::cout << "[HID] Device: " << hDevice
-                      << ", ReportID: " << static_cast<int>(hid.bRawData[0])
-                      << ", Size: " << hid.dwSizeHid
-                      << ", Count: " << hid.dwCount
-                      << "\n";
-
-            // For raw HID data parsing, you'll need the report descriptor
-            // from HID APIs like HidP_GetUsages(), etc.
-
-            break;
-        }
-    }
+    std::cout << "keyboard event" << std::endl;
 }
 
 LRESULT CALLBACK WindowProceedure(HWND window_handle, UINT message, WPARAM w_parameter, LPARAM l_parameter) {
     // Handle WM_INPUT events, fired by the Raw Input API.
     if (message == WM_INPUT)
     {
-        ProcessRawInput(reinterpret_cast<HRAWINPUT>(l_parameter));
+        // Cast param to raw input handle.
+        HRAWINPUT raw_input_handle = reinterpret_cast<HRAWINPUT>(l_parameter);
+
+        // Get the size of the raw input structure.
+        UINT raw_input_size = 0;
+        GetRawInputData(raw_input_handle, RID_INPUT, NULL, &raw_input_size, sizeof(RAWINPUTHEADER));
+
+        // Get the raw input structure.
+        // HID raw data is variable-length, need to allocate memory.
+        std::vector<std::byte> raw_input_buffer(raw_input_size);
+        GetRawInputData(raw_input_handle, RID_INPUT, raw_input_buffer.data(), &raw_input_size, sizeof(RAWINPUTHEADER));
+        RAWINPUT* raw_input = reinterpret_cast<RAWINPUT*>(raw_input_buffer.data());
+
+        // Identify event type and pass to proper handler.
+        switch (raw_input->header.dwType)
+        {
+            case RIM_TYPEMOUSE:
+                HandleRawMouseEvent(raw_input->data.mouse);
+                break;
+
+            case RIM_TYPEKEYBOARD:
+                HandleRawKeyboardEvent(raw_input->data.keyboard);
+                break;
+        }
     }
 
     // Pass events to the default window proceedure.
@@ -143,7 +131,7 @@ bool ProcessMessageQueue()
     }
 }
 
-struct Device
+struct WindowsRawInputDevice
 {
     std::string ID;
     std::string Name;
@@ -212,9 +200,15 @@ std::string GetDeviceName(DWORD device_type, bool reset = false)
     }
 }
 
-std::vector<Device> EnumerateDevices()
+bool IsDeviceSupported(RAWINPUTDEVICELIST enumerated_device)
 {
-    std::vector<Device> devices;
+    // Currently mice and keyboards are supported.
+    return enumerated_device.dwType == RIM_TYPEMOUSE || enumerated_device.dwType == RIM_TYPEKEYBOARD;
+}
+
+std::vector<WindowsRawInputDevice> EnumerateDevices()
+{
+    std::vector<WindowsRawInputDevice> devices;
 
     // Reset enumeration state.
     GetDeviceName(0, true);
@@ -242,19 +236,23 @@ std::vector<Device> EnumerateDevices()
             // Iterate over all input devices.
             for (int i = 0; i < device_count; i++)
             {
-                // Retrieve device id.
-                std::string device_id = GetDeviceID(raw_input_device_list[i].hDevice);
-                if (device_id == "")
+                // Determine if device is supported by the driver.
+                if (IsDeviceSupported(raw_input_device_list[i]))
                 {
-                    std::cout << "Unable to retrieve device id." << std::endl;
-                    continue;
+                    // Retrieve device id.
+                    std::string device_id = GetDeviceID(raw_input_device_list[i].hDevice);
+                    if (device_id == "")
+                    {
+                        std::cout << "Unable to retrieve device id." << std::endl;
+                        continue;
+                    }
+                    
+                    // Retrieve device name.
+                    std::string device_name = GetDeviceName(raw_input_device_list[i].dwType);
+                    
+                    // Create and add device structure to list.
+                    devices.emplace_back(device_id, device_name, raw_input_device_list[i].hDevice);
                 }
-                
-                // Retrieve device name.
-                std::string device_name = GetDeviceName(raw_input_device_list[i].dwType);
-                
-                // Create and add device structure to list.
-                devices.emplace_back(device_id, device_name, raw_input_device_list[i].hDevice);
             }
         }
     }
@@ -262,14 +260,14 @@ std::vector<Device> EnumerateDevices()
     return devices;
 }
 
-bool RegisterDevices(HWND window_handle, const std::vector<Device>& devices)
+bool RegisterDevices(HWND window_handle, const std::vector<WindowsRawInputDevice>& devices)
 {
     // Store unique sets of parameters, created raw input device structs.
     std::set<std::tuple<USHORT, USHORT, DWORD>> unique_parameters;
     std::vector<RAWINPUTDEVICE> raw_input_devices;
 
     // Iterate over devices list.
-    for (Device device : devices)
+    for (WindowsRawInputDevice device : devices)
     {
         // Get and validate device info is of valid type.
         RID_DEVICE_INFO device_info = GetDeviceInfo(device.Handle);
@@ -324,7 +322,6 @@ bool RegisterDevices(HWND window_handle, const std::vector<Device>& devices)
     return false;
 }
 
-
 void WindowsRawInput::Initialize()
 {
     // Initialize hidden window.
@@ -336,7 +333,7 @@ void WindowsRawInput::Initialize()
     }
 
     // Enumerate input devices.
-    std::vector<Device> devices = EnumerateDevices();
+    std::vector<WindowsRawInputDevice> devices = EnumerateDevices();
 
     // Register all input devices.
     if (!RegisterDevices(hidden_window_handle, devices))

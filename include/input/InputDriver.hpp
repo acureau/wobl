@@ -1,21 +1,21 @@
 #pragma once
 
 #include <string>
-
-enum InputDriverMode
-{
-    Poll,
-    Callback
-};
+#include <queue>
+#include "InputEvent.hpp"
 
 class InputDriver
 {
     public:
-        InputDriverMode Mode;   // Data access mode.
-        std::string Id;         // Driver identifier used for unique device ids.
+        // Driver identifier used for unique device ids.
+        std::string Id;
 
         // Invoked on driver registration.
         virtual void Initialize() = 0;
+
+        // Poll for input events.
+        virtual std::queue<InputEvent> GetInputEvents() = 0;
     
+        // Purely virtual class, call implementation destructor.
         virtual ~InputDriver() = default;
 };

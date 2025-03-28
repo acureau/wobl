@@ -5,8 +5,7 @@
 #include <utility>
 #include <functional>
 #include <unordered_map>
-#include "Input.hpp"
-#include "InputDevice.hpp"
+#include "InputEvent.hpp"
 #include "InputDriver.hpp"
 
 /*
