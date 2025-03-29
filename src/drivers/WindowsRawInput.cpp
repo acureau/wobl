@@ -20,11 +20,6 @@
 
 std::queue<InputEvent> InputEventQueue;
 
-void HandleRawMouseEvent(const RAWMOUSE &raw_mouse_event)
-{
-    std::cout << "mouse event" << std::endl;
-}
-
 void HandleRawKeyboardEvent(const RAWKEYBOARD &raw_keyboard_event)
 {
     // Ignore invalid states.
@@ -58,10 +53,6 @@ LRESULT CALLBACK WindowProceedure(HWND window_handle, UINT message, WPARAM w_par
         // Identify event type and pass to proper handler.
         switch (raw_input->header.dwType)
         {
-            case RIM_TYPEMOUSE:
-                HandleRawMouseEvent(raw_input->data.mouse);
-                break;
-
             case RIM_TYPEKEYBOARD:
                 HandleRawKeyboardEvent(raw_input->data.keyboard);
                 break;
@@ -202,8 +193,8 @@ std::string GetDeviceName(DWORD device_type, bool reset = false)
 
 bool IsDeviceSupported(RAWINPUTDEVICELIST enumerated_device)
 {
-    // Currently mice and keyboards are supported.
-    return enumerated_device.dwType == RIM_TYPEMOUSE || enumerated_device.dwType == RIM_TYPEKEYBOARD;
+    // Currently keyboards are supported.
+    return enumerated_device.dwType == RIM_TYPEKEYBOARD;
 }
 
 std::vector<WindowsRawInputDevice> EnumerateDevices()
