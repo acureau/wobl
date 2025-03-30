@@ -11,6 +11,7 @@
 int main()
 {
     // Initialize RNG.
+    // todo: move into library.
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     std::srand(seed);
 

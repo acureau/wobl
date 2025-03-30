@@ -56,3 +56,8 @@ add_executable(input-test
     tests/InputTest.cpp
 )
 target_link_libraries(input-test wobl)
+
+add_executable(output-test
+    tests/OutputTest.cpp
+)
+target_link_libraries(output-test wobl)
