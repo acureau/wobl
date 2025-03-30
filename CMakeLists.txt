@@ -12,6 +12,7 @@ endif()
 add_library(wobl STATIC
     src/drivers/WindowsRawInput.cpp
     src/drivers/LinuxEvdev.cpp
+    src/input/InputHandler.cpp
     src/output/Wav.cpp
     src/synthesis/Envelope.cpp
     src/synthesis/Filter.cpp

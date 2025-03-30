@@ -5,68 +5,49 @@
 #include <utility>
 #include <functional>
 #include <unordered_map>
+#include <thread>
+#include <atomic>
+#include <mutex>
+#include <memory>
 #include "InputEvent.hpp"
 #include "InputDriver.hpp"
+#include "InputDevice.hpp"
 
-/*
-    We should move the devices to their parent drivers. We can access them without recreating them after all.
-    But then how will we determine which drivers are active? How will this interface take device IDs?
-    Maybe we need a map of device ids to driver ids?
-
-    That makes sense I guess, the only thing this class should manage is drivers. It should be a generic interface to those drivers,
-    and invoke updates in them. It just needs to expose the means of browsing, selecting, and accessing the data of devices in a
-    driver agnostic way.
-*/
-
-using StringPairVector = std::vector<std::pair<std::string, std::string>>;
-
-class InputChangedCallback
-{
-    private:
-        // some kind of variable for tracking last invocation time
-    public:
-        int UpdateIntervalMS;
-        std::function<void(const StringPairVector &)> Callback;
-};
+// Function signature for input event callbacks.
+using InputEventCallback = std::function<void(std::queue<InputEvent>)>;
 
 class InputHandler
 {
     private:
-        // registered drivers map, id to object
-        std::unordered_map<std::string, InputDriver> RegisteredDrivers;
+        // The main input handling thread.
+        std::thread PollingThread;
+
+        // Flag set when the polling thread is running.
+        std::atomic<bool> PollingThreadActive;
         
-        // active device ids list
-        std::vector<std::string> ActiveDevices;
+        // Input driver list thread lock.
+        std::mutex DriverMutex;
 
-        // map of device ids to their containing driver ids
-        std::unordered_map<std::string, std::string> DeviceDriverMap;
+        // A list of registered input drivers.
+        std::vector<std::unique_ptr<InputDriver>> RegisteredInputDrivers;
+        
+        // Callback function list thread lock.
+        std::mutex CallbackMutex;
 
-        // registered callbacks list
-        std::vector<InputChangedCallback> RegisteredCallbacks;
+        // A list of registered callback functions.
+        std::vector<std::shared_ptr<InputEventCallback>> RegisteredCallbacks;
 
-        // invoke callback functions bound to input handler
-        void InvokeCallbacks(const StringPairVector &updated_inputs);
-
-        // main thread loop.
+        // main thread loop. polls drivers and invokes callbacks.
         void Update();
 
+        // Method used to register input drivers.
+        void RegisterDriver(std::unique_ptr<InputDriver> driver);
+
     public:
-        // ID / name enumeration.
-        StringPairVector EnumerateDevices();
-        StringPairVector EnumerateInputs(std::string device_id);
-        
-        // Device activation / deactivation.
-        void ActivateDevice(std::string device_id);
-        void DeactivateDevice(std::string device_id);
+        // Method used to register callback functions.
+        void RegisterInputEventCallback(std::shared_ptr<InputEventCallback> callback);
 
-        // Polling.
-        template<typename T>
-        T GetInputState(std::string device_id, std::string input_id);
-
-        // Callback.
-        void RegisterInputChangedCallback(int update_interval_ms, InputChangedCallback callback);
-
-        // Handler initialization.
-        void RegisterDriver(InputDriver driver);
+        // Registers drivers, spawns input handler thread.
         InputHandler();
+        ~InputHandler();
 };
