@@ -37,6 +37,8 @@ I just want to let it be known that the [RAWINPUTDEVICELIST](https://learn.micro
 
 (output system architecture)
 
+I am designing an output handler where the synthesizer engine is an authoritative provider of parameters like sample rate, bits per sample, and sample type (float or integer). The core of the system will be a single-producer multi-consumer ring buffer. I will implement a resampler that sits between the buffered samples and the consumer. 
+
 ### Abstracting Synthesis
 
 (synthesis system architecture)
