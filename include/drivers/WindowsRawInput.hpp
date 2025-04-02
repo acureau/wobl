@@ -10,15 +10,19 @@
 #ifdef PLATFORM_WINDOWS
 #pragma once
 
+#include <queue>
 #include <Windows.h>
+#include "InputDriver.hpp"
+#include "InputEvent.hpp"
 
-class WindowsRawInput /*: InputDriver*/
+class WindowsRawInput : public InputDriver
 {
     private:
         
 
     public:
         void Initialize();
+        std::queue<InputEvent> GetInputEvents();
 };
 
 #endif

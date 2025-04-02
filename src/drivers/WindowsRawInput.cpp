@@ -5,7 +5,6 @@
 #include <string>
 #include <unordered_map>
 #include <set>
-#include <queue>
 
 #include "Windows.h"
 #include "hidusage.h"
@@ -311,6 +310,11 @@ bool RegisterDevices(HWND window_handle, const std::vector<WindowsRawInputDevice
         }
     }
     return false;
+}
+
+std::queue<InputEvent> WindowsRawInput::GetInputEvents()
+{
+    return std::queue<InputEvent>();
 }
 
 void WindowsRawInput::Initialize()
