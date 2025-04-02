@@ -45,8 +45,7 @@ void InputHandler::RegisterDriver(std::unique_ptr<InputDriver> driver)
     // Acquire driver list lock.
     std::lock_guard<std::mutex> driver_lock(this->DriverMutex);
 
-    // Initialize driver and add to the active driver list.
-    driver->Initialize();
+    // Add to the active driver list.
     RegisteredInputDrivers.push_back(std::move(driver));
 }
 
@@ -73,6 +72,14 @@ InputHandler::InputHandler()
     // Spawn polling thread.
     this->PollingThreadActive = true;
     this->PollingThread = std::thread([this]() {
+        
+        // Initialize all drivers.
+        for (std::unique_ptr<InputDriver> &driver : this->RegisteredInputDrivers)
+        {
+            driver->Initialize();
+        }
+
+        // Poll all drivers.
         while (this->PollingThreadActive) {
             this->Update();
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
