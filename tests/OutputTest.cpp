@@ -22,6 +22,7 @@ int main()
     Oscillator sine(OscillatorType::Sine, frequency, static_cast<float>(sample_rate));
 
     // todo: configure live output.
+    
 
     // Generate samples.
     // todo: produce samples to live output.
