@@ -11,7 +11,6 @@
 #include <memory>
 #include "InputEvent.hpp"
 #include "InputDriver.hpp"
-#include "InputDevice.hpp"
 
 // Function signature for input event callbacks.
 using InputEventCallback = std::function<void(std::queue<InputEvent>)>;
@@ -37,7 +36,7 @@ class InputHandler
         // A list of registered callback functions.
         std::vector<std::shared_ptr<InputEventCallback>> RegisteredCallbacks;
 
-        // main thread loop. polls drivers and invokes callbacks.
+        // Main thread loop. Polls drivers and invokes callbacks.
         void Update();
 
         // Method used to register input drivers.

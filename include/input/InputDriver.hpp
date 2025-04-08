@@ -7,7 +7,7 @@
 class InputDriver
 {
     public:
-        // Driver identifier used for unique device ids.
+        // Driver identifier.
         std::string Id;
 
         // Invoked on driver registration.

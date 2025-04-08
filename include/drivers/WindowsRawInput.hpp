@@ -61,8 +61,8 @@ class WindowsRawInput : public InputDriver
         
     public:
         std::string Id = "Windows Raw Input Driver";
-        void Initialize();
-        std::queue<InputEvent> GetInputEvents();
+        void Initialize() override;
+        std::queue<InputEvent> GetInputEvents() override;
 };
 
 #endif

@@ -11,9 +11,10 @@ endif()
 # Add library.
 add_library(wobl STATIC
     src/drivers/WindowsRawInput.cpp
+    src/drivers/WindowsWasapi.cpp
     src/drivers/LinuxEvdev.cpp
     src/input/InputHandler.cpp
-    src/output/OutputConverter.cpp
+    src/output/OutputHandler.cpp
     src/output/Wav.cpp
     src/synthesis/Envelope.cpp
     src/synthesis/Filter.cpp

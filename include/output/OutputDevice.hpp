@@ -3,9 +3,9 @@
 #include <string>
 #include <optional>
 
-struct InputDevice
+class OutputDevice 
 {
     std::string DriverId;
     std::string DeviceId;
-    std::string DeviceName;
+    std::optional<std::string> DeviceName;
 };

@@ -59,9 +59,9 @@ class LinuxEvdev : public InputDriver
 
     public:
         std::string Id = "Linux Evdev Driver";
-        void Initialize();
-        std::queue<InputEvent> GetInputEvents();
-        ~LinuxEvdev();
+        void Initialize() override;
+        std::queue<InputEvent> GetInputEvents() override;
+        ~LinuxEvdev() override;
 };
 
 #endif
