@@ -3,7 +3,7 @@
 #include <string>
 #include <optional>
 
-class OutputDevice 
+struct OutputDevice 
 {
     std::string DriverId;
     std::string DeviceId;

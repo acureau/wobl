@@ -24,9 +24,6 @@ class OutputDriver
         // Disable device playback.
         virtual void DisableDevice(const OutputDevice &device) = 0;
 
-        // Method invoked by the output handler thread loop, passes a sample frame to the driver.
-        virtual void ReceiveSampleFrame(const OutputDevice &device, const std::vector<std::byte> &frame) = 0;
-
         // Method invoked by the output handler thread loop, requests playback of recieved samples.
         virtual void Flush() = 0;
 
