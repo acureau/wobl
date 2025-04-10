@@ -1,6 +1,11 @@
+#pragma once
+
 #include <cstddef>
 #include <vector>
+#include <functional>
 #include "OutputFormat.hpp"
+
+using SampleCallback = std::function<std::vector<std::byte>(const std::string&, const std::string&)>;
 
 class OutputHandler
 {

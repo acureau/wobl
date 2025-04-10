@@ -3,17 +3,22 @@
 #include <string>
 #include <vector>
 #include <cstddef>
+#include <memory>
 #include "OutputFormat.hpp"
 #include "OutputDevice.hpp"
+#include "OutputHandler.hpp"
 
 class OutputDriver
 {
     public:
         // Driver identifier.
         std::string Id;
+    
+        // Sample callback pointer.
+        std::shared_ptr<SampleCallback> SampleCallbackPointer;
 
         // Invoked on driver registration.
-        virtual void Initialize() = 0;
+        virtual void Initialize(std::shared_ptr<SampleCallback> sample_callback_pointer) = 0;
 
         // Enumerate all devices supported by driver.
         virtual std::vector<OutputDevice> EnumerateDevices() = 0;
