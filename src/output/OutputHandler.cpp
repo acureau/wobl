@@ -1,5 +1,6 @@
 #include <iostream>
 #include "OutputHandler.hpp"
+#include <WindowsWasapi.hpp>
 
 bool OutputHandler::ValidateFormat(const OutputFormat &format)
 {
@@ -47,6 +48,50 @@ bool OutputHandler::ValidateSampleFrame(const std::vector<std::byte> &frame)
     return true;
 }
 
+std::vector<std::byte> OutputHandler::GetSampleFrame(const std::string& driver_id, const std::string& device_id)
+{
+    return std::vector<std::byte>();
+}
+
+void OutputHandler::RegisterDriver(std::unique_ptr<OutputDriver> driver)
+{
+    // Acquire driver list lock.
+    std::lock_guard<std::mutex> driver_lock(this->DriverMutex);
+
+    // Add to the active driver list.
+    this->RegisteredOutputDrivers.push_back(std::move(driver));
+}
+
+void OutputHandler::Update()
+{
+    
+}
+
+std::vector<OutputDevice> OutputHandler::EnumerateDevices()
+{
+    std::vector<OutputDevice> devices;
+    
+    // Iterate over all drivers.
+    for (std::unique_ptr<OutputDriver> &driver : this->RegisteredOutputDrivers)
+    {
+        // Enumerate devices from driver, add them to the top-level list.
+        std::vector<OutputDevice> driver_devices = driver->EnumerateDevices();
+        devices.insert(devices.end(), driver_devices.begin(), driver_devices.end());
+    }
+
+    return devices;
+}
+
+void OutputHandler::EnableDevice(const OutputDevice& device)
+{
+
+}
+
+void OutputHandler::DisableDevice(const OutputDevice& device)
+{
+
+}
+
 void OutputHandler::SetMasterFormat(OutputFormat master_format)
 {
     // Validate passed format.
@@ -74,9 +119,52 @@ void OutputHandler::SetMasterFormat(OutputFormat master_format)
 
 OutputHandler::OutputHandler(OutputFormat master_format)
 {
+    // Set the master format.
     this->SetMasterFormat(master_format);
 
-    // todo: proceed to register drivers
+    // Register platform specific drivers.
+    #ifdef PLATFORM_WINDOWS
+    this->RegisterDriver(std::make_unique<WindowsWasapi>());
+    #endif
+    #ifdef PLATFORM_LINUX
+    
+    #endif
+
+    // Spawn polling thread.
+    this->PollingThreadActive = true;
+    this->PollingThread = std::thread([this]() {
+
+        // Initialize all drivers.
+        for (std::unique_ptr<OutputDriver> &driver : this->RegisteredOutputDrivers)
+        {
+            driver->Initialize
+            (
+                std::make_shared<SampleCallback>
+                (
+                    [this](const std::string& driver_id, const std::string& device_id) -> std::vector<std::byte>
+                    {
+                        return this->GetSampleFrame(driver_id, device_id);
+                    }
+                )
+            );
+        }
+
+        // Poll all drivers.
+        while (this->PollingThreadActive) {
+            this->Update();
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+    });
+}
+
+OutputHandler::~OutputHandler()
+{
+    // Clean up polling thread.
+    this->PollingThreadActive = false;
+    if (this->PollingThread.joinable())
+    {
+        this->PollingThread.join();
+    }
 }
 
 /*

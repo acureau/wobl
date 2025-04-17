@@ -4,9 +4,11 @@
 #include <vector>
 #include <cstddef>
 #include <memory>
+#include <functional>
 #include "OutputFormat.hpp"
 #include "OutputDevice.hpp"
-#include "OutputHandler.hpp"
+
+using SampleCallback = std::function<std::vector<std::byte>(const std::string&, const std::string&)>;
 
 class OutputDriver
 {

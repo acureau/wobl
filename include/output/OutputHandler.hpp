@@ -1,15 +1,33 @@
 #pragma once
 
+#include <atomic>
+#include <thread>
 #include <cstddef>
 #include <vector>
 #include <functional>
+#include <utility>
+#include <unordered_map>
+#include <memory>
+#include <mutex>
 #include "OutputFormat.hpp"
+#include "OutputDevice.hpp"
+#include "OutputDriver.hpp"
 
 using SampleCallback = std::function<std::vector<std::byte>(const std::string&, const std::string&)>;
+using DeviceState = std::pair<float, OutputFormat>;
 
 class OutputHandler
 {
     private:
+        // The output driver polling thread.
+        std::thread PollingThread;
+
+        // Flag set when the polling thread is running.
+        std::atomic<bool> PollingThreadActive;
+        
+        // Output driver list thread lock.
+        std::mutex DriverMutex;
+
         // The format being written to the buffer by the synthesizer engine.
         OutputFormat MasterFormat;
 
@@ -24,18 +42,30 @@ class OutputHandler
         // The index of the last sample frame written to the buffer. Whole number because the sample buffer follows the master format.
         int MasterFrameIndex;
 
+        // A map of the composite driver / device ID to its state.
+        std::unordered_map<std::string, DeviceState> DeviceIDStateMap;
+
+        // A list of registered output drivers.
+        std::vector<std::unique_ptr<OutputDriver>> RegisteredOutputDrivers;
+
         // Validates that output formats are supported by the output handler.
         bool ValidateFormat(const OutputFormat &format);
 
         // Validates that the passed sample frame is valid for the master format.
         bool ValidateSampleFrame(const std::vector<std::byte> &frame);
 
+        // Called by consumers, reads samples for a specific device (the state of which is stored).
+        std::vector<std::byte> GetSampleFrame(const std::string& driver_id, const std::string& device_id);
+
+        // Method used to register output drivers.
+        void RegisterDriver(std::unique_ptr<OutputDriver> driver);
+
         /*
             This will be the main output handling thread loop.
 
-            I envision this working in two parts. We're processing each consumer in-between writes, and invoking a function to pass the
-            samples in the proper format to the drivers. After this we call a "polling" function. The driver determines if it has what it needs
-            to pass the samples along, and if so it does.
+            Each iteration we'll be invoking every driver's "flush" method, which should be non-blocking and
+            may in turn cause the driver to request samples. After this point the driver will do no work, or
+            have the samples it needs for playback.
 
             Consuming will be a pipeline. The first step is to actually retrieve the sample frame from the buffer.
             If the index is a whole number this is simple, we just grab it. If it's not we need to grab both frames
@@ -57,13 +87,16 @@ class OutputHandler
         void Update();
 
     public:
+        // Enumerate devices from all drivers.
+        std::vector<OutputDevice> EnumerateDevices();
 
-        // Device management. Defer to registered drivers.
-        void EnumerateDevices();
-        void EnableDevice();
-        void DisableDevice();
+        // Enable a device.
+        void EnableDevice(const OutputDevice& device);
+        
+        // Disable a device.
+        void DisableDevice(const OutputDevice& device);
 
-        // Called by the synth engine, writes samples matching the master parameters to the bufffer.
+        // Called by the producer, writes samples matching the master parameters to the buffer.
         void WriteSampleFrame(const std::vector<std::byte> &frame);
 
         // Sets the master format, reallocating the sample buffer.
@@ -71,4 +104,5 @@ class OutputHandler
         
         // Constructs an output handler with the given master format.
         OutputHandler(OutputFormat master_format);
+        ~OutputHandler();
 };
