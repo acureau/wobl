@@ -18,3 +18,4 @@ The audio engine would need some kind of communication protocol, allowing us to 
 - I am applying time scaling on the oscillators but not the envelopes, maybe I should consolidate the two implementations.
 - I've implemented envelope trigger smoothing, which is only really useful for the amplitude parameter. Maybe this setting should be more out of the way.
 - The output handler needs some way to activate and deactivate devices, it's not ideal to write to all possible playback devices. The input handler should do the same.
+- Move shared typedefs into a header.

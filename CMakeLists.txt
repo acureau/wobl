@@ -13,6 +13,7 @@ add_library(wobl STATIC
     src/drivers/WindowsRawInput.cpp
     src/drivers/WindowsWasapi.cpp
     src/drivers/LinuxEvdev.cpp
+    src/drivers/LinuxAlsa.cpp
     src/input/InputHandler.cpp
     src/output/OutputHandler.cpp
     src/output/Wav.cpp
@@ -44,7 +45,7 @@ endif()
 # Linux configuration.
 if(NOT WIN32)
     add_definitions(-DPLATFORM_LINUX)
-    target_link_libraries(wobl m)
+    target_link_libraries(wobl m asound)
 endif()
 
 # TEST EXECUTABLES, TODO: REMOVE ME AND MAKE INDEPENDENT CMAKE PROJECTS
