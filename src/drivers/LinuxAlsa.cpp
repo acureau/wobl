@@ -4,6 +4,16 @@
 // ALSA error handler that discards error messages, used to silence library output.
 void AlsaNullErrorHandler(const char*, int, const char*, int, const char*, ...) {}
 
+OutputFormat LinuxAlsa::ConvertAlsaToInternalSampleFormat(snd_pcm_format_t alsa_sample_format)
+{
+
+}
+
+snd_pcm_format_t LinuxAlsa::ConvertInternalToAlsaSampleFormat(OutputFormat internal_sample_format)
+{
+
+}
+
 void LinuxAlsa::Initialize(std::shared_ptr<SampleCallback> sample_callback_pointer)
 {
     // Set sample callback pointer.
@@ -67,10 +77,54 @@ std::vector<OutputDevice> LinuxAlsa::EnumerateDevices()
 
 OutputFormat LinuxAlsa::EnableDevice(const OutputDevice &device, const OutputFormat &requested_output_format)
 {
-    // There is no built in "negotiation". I need to determine the closest possible format manually. This is step one.
+    OutputFormat device_format;
+
+    // Open device handle.
+    snd_pcm_t* device_handle;
+    if (snd_pcm_open(&device_handle, device.DeviceId.c_str(), SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK) < 0)
+    {
+        std::cerr << "ALSA: Unable to open device handle." << std::endl;
+        return {};
+    }
+
+    // Allocate hw_params structure.
+    snd_pcm_hw_params_t* hw_params;
+    if (snd_pcm_hw_params_malloc(&hw_params) < 0)
+    {
+        std::cerr << "ALSA: Unable to allocate hw_params structure." << std::endl;
+        return {};
+    }
+    
+    // Get the supported range of configurations.
+    if (snd_pcm_hw_params_any(device_handle, hw_params) < 0)
+    {
+        std::cerr << "ALSA: Unable to populate hw_params structure." << std::endl;
+        return {};
+    }
+
+    // Negotiate sample rate.
+    unsigned int negotiated_sample_rate = requested_output_format.SampleRate;
+    if (snd_pcm_hw_params_set_rate_near(device_handle, hw_params, &negotiated_sample_rate, 0) < 0)
+    {
+        std::cerr << "ALSA: Unable to negotiate sample rate." << std::endl;
+        return {};
+    }
+    device_format.SampleRate = negotiated_sample_rate;
+
+    // Negotiate channel count.
+    unsigned int negotiated_channel_count = requested_output_format.ChannelCount;
+    if (snd_pcm_hw_params_set_channels_near(device_handle, hw_params, &negotiated_channel_count) < 0)
+    {
+        std::cerr << "ALSA: Unable to negotiate channel count." << std::endl;
+        return {};
+    }
+    device_format.ChannelCount = negotiated_channel_count;
+
+    // Negotiate sample format.
+
     // Step two is to pass the supported hwparams to the device.
     // Step three is to prepare it for flush calls.
-    return OutputFormat {};
+    return device_format;
 }
 
 void LinuxAlsa::DisableDevice(const OutputDevice &device)

@@ -20,6 +20,8 @@ class LinuxAlsa : public OutputDriver
         // Map of device IDs to the corresponding handles.
         std::unordered_map<std::string, snd_pcm_t*> DeviceIDHandleMap;
 
+        OutputFormat ConvertAlsaToInternalSampleFormat(snd_pcm_format_t alsa_sample_format);
+        snd_pcm_format_t ConvertInternalToAlsaSampleFormat(OutputFormat internal_sample_format);
 
     public:
         void Initialize(std::shared_ptr<SampleCallback> sample_callback_pointer) override;
