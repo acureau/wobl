@@ -1,17 +1,122 @@
 #include <iostream>
+#include <sstream>
+#include <cstdio>
 #include "LinuxAlsa.hpp"
 
 // ALSA error handler that discards error messages, used to silence library output.
 void AlsaNullErrorHandler(const char*, int, const char*, int, const char*, ...) {}
 
-OutputFormat LinuxAlsa::ConvertAlsaToInternalSampleFormat(snd_pcm_format_t alsa_sample_format)
-{
+const std::vector<std::pair<std::string, snd_pcm_format_t>> LinuxAlsa::SampleFormatEnumPairs = {
+    {"S_I_8", SND_PCM_FORMAT_S8},
+    {"U_I_8", SND_PCM_FORMAT_U8},
+    {"S_I_16", SND_PCM_FORMAT_S16_LE},
+    {"U_I_16", SND_PCM_FORMAT_U16_LE},
+    {"S_I_24", SND_PCM_FORMAT_S24_3LE},
+    {"U_I_24", SND_PCM_FORMAT_U24_3LE},
+    {"S_I_32", SND_PCM_FORMAT_S32_LE},
+    {"U_I_32", SND_PCM_FORMAT_U32_LE},
+    {"S_F_32", SND_PCM_FORMAT_FLOAT_LE}
+};
 
+std::string LinuxAlsa::OutputFormatToEnumKey(const OutputFormat &output_format)
+{
+    std::ostringstream enum_key_stream;
+    enum_key_stream 
+        << (output_format.Sign == Signed ? "S" : "U") << '_' 
+        << (output_format.Type == FloatingPoint ? "F" : "I") << '_' 
+        << output_format.BitsPerSample; 
+    return enum_key_stream.str();
 }
 
-snd_pcm_format_t LinuxAlsa::ConvertInternalToAlsaSampleFormat(OutputFormat internal_sample_format)
+OutputFormat LinuxAlsa::FormatEnumKeyToOutputFormat(const std::string &format_enum_key)
 {
+    OutputFormat output_format;
+    char sign_char, type_char;
+    int bits;
+    
+    // Parse string components.
+    if (sscanf(format_enum_key.c_str(), "%c_%c_%d", &sign_char, &type_char, &bits) != 3) {
+        std::cerr << "ALSA: Unable to convert enum key to output format." << std::endl;
+        return {};
+    }
 
+    // Populate relevant output format properties.
+    output_format.Sign = (sign_char == 'S') ? Signed : Unsigned;
+    output_format.Type = (type_char == 'F') ? FloatingPoint : Integer;
+    output_format.BitsPerSample = bits;
+
+    return output_format;
+}
+
+OutputFormat LinuxAlsa::FormatEnumToOutputFormat(snd_pcm_format_t format_enum)
+{
+    // Find the corresponding key string for the enum.
+    for (const auto& pair : SampleFormatEnumPairs)
+    {
+        if (pair.second == format_enum)
+        {
+            // Convert the key to an internal output format object.
+            return FormatEnumKeyToOutputFormat(pair.first);
+        }
+    }
+    return {};
+}
+
+
+std::vector<snd_pcm_format_t> LinuxAlsa::GetOrderedFormatNegotiationEnums(const OutputFormat &output_format)
+{
+    // Get output sample format ALSA enum key.
+    std::string format_enum_key = OutputFormatToEnumKey(output_format);
+
+    // Find index of enum key.
+    int enum_key_index = -1;
+    for (int i = 0; i < SampleFormatEnumPairs.size(); ++i) 
+    {
+        if (SampleFormatEnumPairs[i].first == format_enum_key) 
+        {
+            enum_key_index = i;
+            break;
+        }
+    }
+
+    if (enum_key_index == -1)
+    {
+        std::cerr << "ALSA: Unable to find index of enum key in list." << std::endl;
+        return {};
+    }
+
+    // Build an ordered list of enums to try in negotiation.
+    std::vector<snd_pcm_format_t> negotiation_enums { SampleFormatEnumPairs[enum_key_index].second };
+    int offset = 1;
+    bool overflow = false;
+    bool underflow = false;
+    while (!overflow || !underflow)
+    {
+        // Check positive offset.
+        if (!overflow && (enum_key_index + offset <= SampleFormatEnumPairs.size() - 1))
+        {
+            negotiation_enums.push_back(SampleFormatEnumPairs[enum_key_index + offset].second);
+        }
+        else 
+        {
+            overflow = true;
+        }
+
+        // Check negative offset.
+        if (!underflow && (enum_key_index - offset >= 0))
+        {
+            negotiation_enums.push_back(SampleFormatEnumPairs[enum_key_index - offset].second);
+        }
+        else 
+        {
+            underflow = true;
+        }
+
+        // Increment offset.
+        offset++;
+    }
+
+    return negotiation_enums;
 }
 
 void LinuxAlsa::Initialize(std::shared_ptr<SampleCallback> sample_callback_pointer)
@@ -121,6 +226,43 @@ OutputFormat LinuxAlsa::EnableDevice(const OutputDevice &device, const OutputFor
     device_format.ChannelCount = negotiated_channel_count;
 
     // Negotiate sample format.
+    snd_pcm_format_t negotiated_format_enum = SND_PCM_FORMAT_UNKNOWN;
+    for (snd_pcm_format_t format_enum : GetOrderedFormatNegotiationEnums(requested_output_format))
+    {
+        if (snd_pcm_hw_params_test_format(device_handle, hw_params, format_enum) == 0)
+        {
+            negotiated_format_enum = format_enum;
+            break;
+        }
+    }
+    
+    // Set sample format in hw_params and returned output format.
+    if (negotiated_format_enum == SND_PCM_FORMAT_UNKNOWN)
+    {
+        std::cerr << "ALSA: Unable to negotiate sample format." << std::endl;
+        return {};
+    }
+    else
+    {
+        if (snd_pcm_hw_params_set_format(device_handle, hw_params, negotiated_format_enum) < 0)
+        {
+            std::cerr << "ALSA: Unable to set sample format." << std::endl;
+            return {};
+        }
+
+        OutputFormat negotiated_output_sample_format = FormatEnumToOutputFormat(negotiated_format_enum);
+        if (negotiated_output_sample_format.BitsPerSample == 0)
+        {
+            std::cerr << "ALSA: Unable to find enum in known format pairs." << std::endl;
+            return {};
+        }
+        else 
+        {
+            device_format.BitsPerSample = negotiated_output_sample_format.BitsPerSample;
+            device_format.Sign = negotiated_output_sample_format.Sign;
+            device_format.Type = negotiated_output_sample_format.Type;
+        }
+    }
 
     // Step two is to pass the supported hwparams to the device.
     // Step three is to prepare it for flush calls.

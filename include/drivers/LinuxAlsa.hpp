@@ -17,11 +17,15 @@ using SampleCallback = std::function<std::vector<std::byte>(const std::string&, 
 class LinuxAlsa : public OutputDriver
 {
     private:
+        // A list used to convert internal format objects to ALSA format enums.
+        static const std::vector<std::pair<std::string, snd_pcm_format_t>> SampleFormatEnumPairs;
+        static std::string OutputFormatToEnumKey(const OutputFormat &output_format);
+        static OutputFormat FormatEnumKeyToOutputFormat(const std::string &format_enum_key);
+        static OutputFormat FormatEnumToOutputFormat(snd_pcm_format_t format_enum);
+        static std::vector<snd_pcm_format_t> GetOrderedFormatNegotiationEnums(const OutputFormat &output_format);
+        
         // Map of device IDs to the corresponding handles.
         std::unordered_map<std::string, snd_pcm_t*> DeviceIDHandleMap;
-
-        OutputFormat ConvertAlsaToInternalSampleFormat(snd_pcm_format_t alsa_sample_format);
-        snd_pcm_format_t ConvertInternalToAlsaSampleFormat(OutputFormat internal_sample_format);
 
     public:
         void Initialize(std::shared_ptr<SampleCallback> sample_callback_pointer) override;
