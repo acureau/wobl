@@ -21,7 +21,7 @@ int main()
     int ChannelCount = 2;
 
     // Initialize oscillator.
-    Oscillator sine(OscillatorType::Sawtooth, 440.0f, SampleRate);
+    Oscillator sine(OscillatorType::Sine, 440.0f, SampleRate);
 
     // Initialize platform-specific driver.
     std::unique_ptr<OutputDriver> output_driver;
@@ -86,24 +86,3 @@ int main()
     output_driver->DisableDevice(devices[0]);
     return 0;
 }
-
-// #include <chrono>
-// #include <thread>
-// #include "OutputHandler.hpp"
-
-// int main()
-// {
-//     OutputFormat requested_output_format
-//     {
-//         44100,
-//         32,
-//         SampleType::FloatingPoint,
-//         SampleSign::Signed,
-//         2
-//     };
-//     OutputHandler output_handler(requested_output_format); 
-    
-//     std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-//     std::vector<OutputDevice> devices = output_handler.EnumerateDevices();
-//     return 0;
-// }

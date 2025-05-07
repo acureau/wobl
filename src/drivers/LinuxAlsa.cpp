@@ -62,7 +62,6 @@ OutputFormat LinuxAlsa::FormatEnumToOutputFormat(snd_pcm_format_t format_enum)
     return {};
 }
 
-
 std::vector<snd_pcm_format_t> LinuxAlsa::GetOrderedFormatNegotiationEnums(const OutputFormat &output_format)
 {
     // Get output sample format ALSA enum key.
@@ -189,6 +188,7 @@ OutputFormat LinuxAlsa::EnableDevice(const OutputDevice &device, const OutputFor
     if (snd_pcm_open(&device_handle, device.DeviceId.c_str(), SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK) < 0)
     {
         std::cerr << "ALSA: Unable to open device handle." << std::endl;
+        snd_pcm_close(device_handle);
         return {};
     }
 
@@ -197,6 +197,8 @@ OutputFormat LinuxAlsa::EnableDevice(const OutputDevice &device, const OutputFor
     if (snd_pcm_hw_params_malloc(&hw_params) < 0)
     {
         std::cerr << "ALSA: Unable to allocate hw_params structure." << std::endl;
+        snd_pcm_hw_params_free(hw_params);
+        snd_pcm_close(device_handle);
         return {};
     }
     
@@ -204,6 +206,17 @@ OutputFormat LinuxAlsa::EnableDevice(const OutputDevice &device, const OutputFor
     if (snd_pcm_hw_params_any(device_handle, hw_params) < 0)
     {
         std::cerr << "ALSA: Unable to populate hw_params structure." << std::endl;
+        snd_pcm_hw_params_free(hw_params);
+        snd_pcm_close(device_handle);
+        return {};
+    }
+
+    // Set access type.
+    if (snd_pcm_hw_params_set_access(device_handle, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED) < 0) 
+    {
+        std::cerr << "ALSA: Unable to set access type." << std::endl;
+        snd_pcm_hw_params_free(hw_params);
+        snd_pcm_close(device_handle);
         return {};
     }
 
@@ -212,6 +225,8 @@ OutputFormat LinuxAlsa::EnableDevice(const OutputDevice &device, const OutputFor
     if (snd_pcm_hw_params_set_rate_near(device_handle, hw_params, &negotiated_sample_rate, 0) < 0)
     {
         std::cerr << "ALSA: Unable to negotiate sample rate." << std::endl;
+        snd_pcm_hw_params_free(hw_params);
+        snd_pcm_close(device_handle);
         return {};
     }
     device_format.SampleRate = negotiated_sample_rate;
@@ -221,6 +236,8 @@ OutputFormat LinuxAlsa::EnableDevice(const OutputDevice &device, const OutputFor
     if (snd_pcm_hw_params_set_channels_near(device_handle, hw_params, &negotiated_channel_count) < 0)
     {
         std::cerr << "ALSA: Unable to negotiate channel count." << std::endl;
+        snd_pcm_hw_params_free(hw_params);
+        snd_pcm_close(device_handle);
         return {};
     }
     device_format.ChannelCount = negotiated_channel_count;
@@ -240,6 +257,8 @@ OutputFormat LinuxAlsa::EnableDevice(const OutputDevice &device, const OutputFor
     if (negotiated_format_enum == SND_PCM_FORMAT_UNKNOWN)
     {
         std::cerr << "ALSA: Unable to negotiate sample format." << std::endl;
+        snd_pcm_hw_params_free(hw_params);
+        snd_pcm_close(device_handle);
         return {};
     }
     else
@@ -247,6 +266,8 @@ OutputFormat LinuxAlsa::EnableDevice(const OutputDevice &device, const OutputFor
         if (snd_pcm_hw_params_set_format(device_handle, hw_params, negotiated_format_enum) < 0)
         {
             std::cerr << "ALSA: Unable to set sample format." << std::endl;
+            snd_pcm_hw_params_free(hw_params);
+            snd_pcm_close(device_handle);
             return {};
         }
 
@@ -254,6 +275,8 @@ OutputFormat LinuxAlsa::EnableDevice(const OutputDevice &device, const OutputFor
         if (negotiated_output_sample_format.BitsPerSample == 0)
         {
             std::cerr << "ALSA: Unable to find enum in known format pairs." << std::endl;
+            snd_pcm_hw_params_free(hw_params);
+            snd_pcm_close(device_handle);
             return {};
         }
         else 
@@ -264,8 +287,19 @@ OutputFormat LinuxAlsa::EnableDevice(const OutputDevice &device, const OutputFor
         }
     }
 
-    // Step two is to pass the supported hwparams to the device.
-    // Step three is to prepare it for flush calls.
+    // Pass hw_params to the device, free structure.
+    if (snd_pcm_hw_params(device_handle, hw_params) < 0)
+    {
+        std::cerr << "ALSA: Unable to set device hardware parameters." << std::endl;
+        snd_pcm_hw_params_free(hw_params);
+        snd_pcm_close(device_handle);
+        return {};
+    }
+    snd_pcm_hw_params_free(hw_params);
+    
+    // Add device handle to id map.
+    this->DeviceIDHandleMap[device.DeviceId] = device_handle;
+
     return device_format;
 }
 
@@ -285,7 +319,42 @@ void LinuxAlsa::DisableDevice(const OutputDevice &device)
 
 void LinuxAlsa::Flush()
 {
-    
+    // Iterate over all active devices.
+    for (auto& [device_id, device_handle] : this->DeviceIDHandleMap)
+    {
+        // Get number of frames available to write.
+        snd_pcm_sframes_t available_frames = snd_pcm_avail_update(device_handle);
+        if (available_frames < 0) {
+            std::cerr << "ALSA: Failed to get available frame count for device '" << device_id << "'." << std::endl;
+            continue;
+        }
+
+        // Continue if no frames available.
+        if (available_frames == 0) continue;
+        
+        // Build samples vector.
+        std::vector<std::byte> samples;
+        for (snd_pcm_sframes_t frame_count = 0; frame_count < available_frames; frame_count++)
+        {
+            std::vector<std::byte> sample_frame = (*this->SampleCallbackPointer)(this->Id, device_id);
+            samples.insert(samples.end(), sample_frame.begin(), sample_frame.end());
+        }
+
+        // Write samples vector to device.
+        snd_pcm_sframes_t result = snd_pcm_writei(device_handle, samples.data(), available_frames);
+        if (result < 0)
+        {
+            // Recover from buffer underrun.
+            if (result == -EPIPE)
+            {
+                snd_pcm_prepare(device_handle);
+            }
+            else
+            {
+                std::cerr << "ALSA: Unable to write frames for device '" << device_id << "'." << std::endl;
+            }
+        }
+    }
 }
 
 LinuxAlsa::~LinuxAlsa()
