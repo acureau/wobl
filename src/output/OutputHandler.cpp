@@ -1,36 +1,43 @@
 #include <iostream>
 #include "OutputHandler.hpp"
+
+#ifdef PLATFORM_WINDOWS
 #include <WindowsWasapi.hpp>
+#endif
+
+#ifdef PLATFORM_LINUX
+#include "LinuxAlsa.hpp"
+#endif 
 
 bool OutputHandler::ValidateFormat(const OutputFormat &format)
 {
     if (format.BitsPerSample % 8 > 0)
     {
-        std::cout << "Unsupported bits per sample '" << format.BitsPerSample << "'. Is not a multiple of 8." << std::endl;
+        std::cerr << "Unsupported bits per sample '" << format.BitsPerSample << "'. Is not a multiple of 8." << std::endl;
         return false;
     }
 
     if (format.BitsPerSample > 32 || format.BitsPerSample < 8)
     {
-        std::cout << "Unsupported bits per sample '" << format.BitsPerSample << "'. Is not between 8 and 32." << std::endl;
+        std::cerr << "Unsupported bits per sample '" << format.BitsPerSample << "'. Is not between 8 and 32." << std::endl;
         return false;
     }
 
     if (format.Type == SampleType::FloatingPoint && format.Sign == SampleSign::Unsigned)
     {
-        std::cout << "Floating point samples cannot be unsigned." << std::endl;
+        std::cerr << "Floating point samples cannot be unsigned." << std::endl;
         return false;
     }
 
     if (format.SampleRate <= 0)
     {
-        std::cout << "Sample rate must be greater than zero." << std::endl;
+        std::cerr << "Sample rate must be greater than zero." << std::endl;
         return false;
     }
 
     if (format.ChannelCount <= 0)
     {
-        std::cout << "Channel count must be greater than zero." << std::endl;
+        std::cerr << "Channel count must be greater than zero." << std::endl;
         return false;
     }
 
@@ -42,14 +49,46 @@ bool OutputHandler::ValidateSampleFrame(const std::vector<std::byte> &frame)
     int bytes_per_frame = (this->MasterFormat.ChannelCount * this->MasterFormat.BitsPerSample) / 8;
     if (frame.size() != bytes_per_frame)
     {
-        std::cout << "Sample frame size does not match master format." << std::endl;
+        std::cerr << "Sample frame size does not match master format." << std::endl;
         return false;
     }
     return true;
 }
 
+std::vector<std::byte> InterpolateSampleFrame(float index)
+{
+
+}
+
+std::vector<float> NormalizeSampleFrame(const std::vector<std::byte> &frame)
+{
+    
+}
+
 std::vector<std::byte> OutputHandler::GetSampleFrame(const std::string& driver_id, const std::string& device_id)
 {
+    std::vector<std::byte> sample_frame;
+
+    // Get device state from map.
+    DeviceState &device_state = this->DeviceIDStateMap.at(driver_id + "::" + device_id);
+
+    // Determine bytes per master sample frame.
+    int master_bytes_per_frame = (this->MasterFormat.BitsPerSample * this->MasterFormat.ChannelCount) / 8;
+
+    // TODO: USE THE CURRENT INDEX TO INTERPOLATE THE SAMPLE FRAME
+    
+    
+    // TODO: WE INCREMENT AT THE END, AND ONLY IF PERMISSIBLE
+    // Calculate device state index increment. Determine if we can increment.
+    // e.g. Producer: 44100, Consumer: 44100, Increment: 1.0
+    // e.g. Producer: 44100, Consumer: 22050, Increment: 2.0
+    // e.g. Producer: 44100, Consumer: 66150, Increment: 0.75
+    float device_state_index_increment = (float)this->MasterFormat.SampleRate / device_state.second.SampleRate;
+    if (device_state.first + device_state_index_increment <= this->MasterFrameIndex)
+    {
+        // Increment index.
+    }
+
     return std::vector<std::byte>();
 }
 
@@ -58,21 +97,29 @@ void OutputHandler::RegisterDriver(std::unique_ptr<OutputDriver> driver)
     // Acquire driver list lock.
     std::lock_guard<std::mutex> driver_lock(this->DriverMutex);
 
-    // Add to the active driver list.
-    this->RegisteredOutputDrivers.push_back(std::move(driver));
+    // Add to the active driver map.
+    this->RegisteredOutputDrivers.emplace(driver->Id, std::move(driver));
 }
 
 void OutputHandler::Update()
 {
-    
+    // Iterate over all drivers.
+    for (auto& [_, driver] : this->RegisteredOutputDrivers)
+    {
+        // Invoke driver flush method.
+        driver->Flush();
+    }
 }
 
 std::vector<OutputDevice> OutputHandler::EnumerateDevices()
 {
     std::vector<OutputDevice> devices;
     
+    // Acquire driver list lock.
+    std::lock_guard<std::mutex> driver_lock(this->DriverMutex);
+
     // Iterate over all drivers.
-    for (std::unique_ptr<OutputDriver> &driver : this->RegisteredOutputDrivers)
+    for (auto& [_, driver] : this->RegisteredOutputDrivers)
     {
         // Enumerate devices from driver, add them to the top-level list.
         std::vector<OutputDevice> driver_devices = driver->EnumerateDevices();
@@ -84,12 +131,45 @@ std::vector<OutputDevice> OutputHandler::EnumerateDevices()
 
 void OutputHandler::EnableDevice(const OutputDevice& device)
 {
+    // Acquire driver list lock.
+    std::lock_guard<std::mutex> driver_lock(this->DriverMutex);
 
+    // Pass the call down to the driver, retrieve device output format.
+    OutputFormat device_format = this->RegisteredOutputDrivers.at(device.DriverId)->EnableDevice(device, this->MasterFormat);
+
+    // Add the device to the state map.
+    DeviceState initial_device_state = {0.0f, device_format};
+    this->DeviceIDStateMap.emplace(device.DriverId + "::" + device.DeviceId, initial_device_state);
 }
 
 void OutputHandler::DisableDevice(const OutputDevice& device)
 {
+    // Acquire driver list lock.
+    std::lock_guard<std::mutex> driver_lock(this->DriverMutex);
 
+    // Pass the call down to the driver.
+    this->RegisteredOutputDrivers.at(device.DriverId)->DisableDevice(device);
+
+    // Remove the device from the state map.
+    this->DeviceIDStateMap.erase(device.DriverId + "::" + device.DeviceId);
+}
+
+void OutputHandler::WriteSampleFrame(const std::vector<std::byte> &frame)
+{
+    // Validate sample frame.
+    if (!ValidateSampleFrame(frame))
+    {
+        return;
+    }
+
+    // Determine bytes per frame.
+    int bytes_per_frame = (this->MasterFormat.BitsPerSample * this->MasterFormat.ChannelCount) / 8;
+
+    // Write sample frame to buffer.
+    std::copy(frame.begin(), frame.end(), this->SampleBuffer.begin() + (this->MasterFrameIndex * bytes_per_frame));
+
+    // Increment the frame index.
+    this->MasterFrameIndex = (this->MasterFrameIndex + 1) % (this->SampleBuffer.size() / bytes_per_frame);
 }
 
 void OutputHandler::SetMasterFormat(OutputFormat master_format)
@@ -97,7 +177,7 @@ void OutputHandler::SetMasterFormat(OutputFormat master_format)
     // Validate passed format.
     if (!this->ValidateFormat(master_format))
     {
-        std::cout << "Unable to set master format." << std::endl;
+        std::cerr << "Unable to set master format." << std::endl;
         return;
     }
 
@@ -127,7 +207,7 @@ OutputHandler::OutputHandler(OutputFormat master_format)
     this->RegisterDriver(std::make_unique<WindowsWasapi>());
     #endif
     #ifdef PLATFORM_LINUX
-    
+    this->RegisterDriver(std::make_unique<LinuxAlsa>());
     #endif
 
     // Spawn polling thread.
@@ -135,7 +215,7 @@ OutputHandler::OutputHandler(OutputFormat master_format)
     this->PollingThread = std::thread([this]() {
 
         // Initialize all drivers.
-        for (std::unique_ptr<OutputDriver> &driver : this->RegisteredOutputDrivers)
+        for (auto& [_, driver] : this->RegisteredOutputDrivers)
         {
             driver->Initialize
             (

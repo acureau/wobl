@@ -45,8 +45,8 @@ class OutputHandler
         // A map of the composite driver / device ID to its state.
         std::unordered_map<std::string, DeviceState> DeviceIDStateMap;
 
-        // A list of registered output drivers.
-        std::vector<std::unique_ptr<OutputDriver>> RegisteredOutputDrivers;
+        // A map of registered driver ids to their instances.
+        std::unordered_map<std::string, std::unique_ptr<OutputDriver>> RegisteredOutputDrivers;
 
         // Validates that output formats are supported by the output handler.
         bool ValidateFormat(const OutputFormat &format);

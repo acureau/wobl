@@ -21,7 +21,8 @@ int main()
     int ChannelCount = 2;
 
     // Initialize oscillator.
-    Oscillator sine(OscillatorType::Sine, 440.0f, SampleRate);
+    Oscillator tone_one(OscillatorType::Sine, 440.0f, SampleRate);
+    Oscillator tone_two(OscillatorType::Sine, 466.0f, SampleRate);
 
     // Initialize platform-specific driver.
     std::unique_ptr<OutputDriver> output_driver;
@@ -37,9 +38,9 @@ int main()
     (
         std::make_shared<SampleCallback>
         (
-            [sine](const std::string& driver_id, const std::string& device_id) mutable -> std::vector<std::byte>
+            [tone_one, tone_two](const std::string& driver_id, const std::string& device_id) mutable -> std::vector<std::byte>
             {
-                float sample = sine.Sample();
+                float sample = ((tone_one.Sample() + tone_two.Sample()) / 2);
                 std::vector<std::byte> buffer(sizeof(float) * 2);
                 std::memcpy(buffer.data(), &sample, sizeof(float));
                 std::memcpy(buffer.data() + sizeof(float), &sample, sizeof(float));
@@ -71,6 +72,7 @@ int main()
         if (device.DeviceId == "default")
         {
             output_driver->EnableDevice(device, requested_output_format);
+            break;
         }
         #endif
     }
